@@ -37,7 +37,11 @@ export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const navItems = [
-    ...BASE_NAV,
+    ...BASE_NAV.filter((item) => {
+      if (item.to === '/resolucoes' && user?.tipo === 'aluno') return false
+      if (item.to === '/tarefas' && user?.tipo === 'aluno') return false
+      return true
+    }),
     ...(user?.tipo === 'admin' ? [{ to: '/usuarios', label: 'Usuários', icon: ShieldCheck }] : []),
   ]
 
