@@ -23,7 +23,16 @@ services:
       - ./uploads:/app/uploads
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
-  # Desenvolvimento local
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+  # Desenvolvimento local: docker compose --profile dev up --build
   api-dev:
     build: ./api
     ports:
@@ -52,17 +61,6 @@ services:
     depends_on:
       - api-dev
     profiles: [dev]
-
-  # Produção
-  web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-    ports:
-      - "8080:80"
-    depends_on:
-      - api
-    profiles: [prod]
 
 volumes:
   pg_data:
