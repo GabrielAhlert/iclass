@@ -64,6 +64,10 @@ cd tui && cargo build --release
 - **Entry point**: `tui/src/main.rs`
 - The TUI communicates with the API exclusively via HTTP (no direct DB access)
 
+## Git
+
+Nunca adicionar `Co-Authored-By` nas mensagens de commit.
+
 ## Environment Variables
 
 Defined in `.env` (not committed). Key vars:
