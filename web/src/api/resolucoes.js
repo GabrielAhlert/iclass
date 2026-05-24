@@ -2,10 +2,10 @@ import client from './client'
 
 const BASE = '/api/v1/resolucoes'
 
-export const getResolucoes = () => client.get(BASE)
+export const getResolucoes = () => client.get(`${BASE}/`)
 export const getResolucao = (id) => client.get(`${BASE}/${id}`)
 export const entregarResolucao = (tarefa_id) =>
-  client.post(BASE, { tarefa_id })
+  client.post(`${BASE}/`, { tarefa_id })
 export const getResolucoesTarefa = (tarefaId) =>
   client.get(`${BASE}/tarefa/${tarefaId}`)
 

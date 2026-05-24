@@ -2,9 +2,9 @@ import client from './client'
 
 const BASE = '/api/v1/turmas'
 
-export const getTurmas = () => client.get(BASE)
+export const getTurmas = () => client.get(`${BASE}/`)
 export const getTurma = (id) => client.get(`${BASE}/${id}`)
-export const criarTurma = (data) => client.post(BASE, data)
+export const criarTurma = (data) => client.post(`${BASE}/`, data)
 export const atualizarTurma = (id, data) => client.patch(`${BASE}/${id}`, data)
 export const removerTurma = (id) => client.delete(`${BASE}/${id}`)
 

@@ -2,9 +2,9 @@ import client from './client'
 
 const BASE = '/api/v1/tarefas'
 
-export const getTarefas = () => client.get(BASE)
+export const getTarefas = () => client.get(`${BASE}/`)
 export const getTarefa = (id) => client.get(`${BASE}/${id}`)
-export const criarTarefa = (data) => client.post(BASE, data)
+export const criarTarefa = (data) => client.post(`${BASE}/`, data)
 export const atualizarTarefa = (id, data) => client.patch(`${BASE}/${id}`, data)
 export const removerTarefa = (id) => client.delete(`${BASE}/${id}`)
 export const atribuirAluno = (tarefaId, alunoId) =>
