@@ -21,4 +21,11 @@ client.interceptors.response.use(
   }
 )
 
+export async function abrirArquivoAutenticado(url) {
+  const resp = await client.get(url, { responseType: 'blob' })
+  const blobUrl = URL.createObjectURL(resp.data)
+  window.open(blobUrl, '_blank', 'noopener,noreferrer')
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
+}
+
 export default client

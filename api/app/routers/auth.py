@@ -7,7 +7,6 @@ from sqlmodel import select
 from app.db import get_session
 from app.models import Usuario, CodigoRecuperacao, TipoUsuario
 from app.schemas.auth import Token, LoginRequest, AlterarSenhaRequest, SolicitarRecuperacaoRequest
-from app.schemas.usuario import UsuarioCreate, UsuarioRead
 from app.core.security import hash_password, verify_password, create_access_token
 from app.core.deps import get_current_user
 
@@ -15,25 +14,6 @@ router = APIRouter()
 
 # RF 4: expiração do código de recuperação em 15 minutos (RNF4)
 EXPIRACAO_CODIGO_MINUTOS = 15
-
-
-@router.post("/register", response_model=UsuarioRead, status_code=status.HTTP_201_CREATED)
-async def registrar(data: UsuarioCreate, session: AsyncSession = Depends(get_session)):
-    result = await session.exec(select(Usuario).where(Usuario.email == data.email))
-    if result.first():
-        raise HTTPException(status_code=409, detail="Email já cadastrado")
-
-    usuario = Usuario(
-        nome=data.nome,
-        email=data.email,
-        senha_hash=hash_password(data.senha),
-        tipo=data.tipo,
-        matricula=data.matricula,
-    )
-    session.add(usuario)
-    await session.commit()
-    await session.refresh(usuario)
-    return usuario
 
 
 @router.post("/login", response_model=Token)

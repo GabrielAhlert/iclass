@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import os
 
 from app.db import init_db
+from app.models import Usuario
+from app.core.deps import get_current_user
 from app.routers import auth, usuarios, turmas, tarefas, resolucoes, avaliacoes, arquivos
 
 UPLOAD_DIR = "/app/uploads"
@@ -36,8 +38,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-
 app.include_router(auth.router,        prefix="/api/v1/auth",        tags=["auth"])
 app.include_router(usuarios.router,    prefix="/api/v1/usuarios",    tags=["usuarios"])
 app.include_router(turmas.router,      prefix="/api/v1/turmas",      tags=["turmas"])
@@ -50,3 +50,13 @@ app.include_router(arquivos.router,    prefix="/api/v1/arquivos",    tags=["arqu
 @app.get("/health", tags=["health"])
 async def health():
     return {"status": "ok", "service": "iclass-api", "version": "0.2.0"}
+
+
+@app.get("/uploads/{filename}", tags=["uploads"])
+async def download_upload(filename: str, _: Usuario = Depends(get_current_user)):
+    if "/" in filename or "\\" in filename or filename.startswith("."):
+        raise HTTPException(status_code=400, detail="Nome inválido")
+    caminho = os.path.join(UPLOAD_DIR, filename)
+    if not os.path.isfile(caminho):
+        raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+    return FileResponse(caminho)

@@ -5,6 +5,7 @@ import { getResolucoes, getResolucoesTarefa, entregarResolucao, uploadArquivoRes
 import { getAvaliacoes, criarAvaliacao } from '../api/avaliacoes'
 import { getUsuarios } from '../api/usuarios'
 import { parseApiError } from '../api/errors'
+import { abrirArquivoAutenticado } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import Button from '../components/Button'
 import RichTextEditor from '../components/RichTextEditor'
@@ -12,8 +13,6 @@ import { FibBadge, StatusBadge } from '../components/Badge'
 import {
   ArrowLeft, Clock, Paperclip, FileText, Image, Loader2, Upload, CheckCircle, Star,
 } from 'lucide-react'
-
-const API = import.meta.env.VITE_API_URL || ''
 
 function ArquivoIcon({ tipo }) {
   return tipo === 'pdf'
@@ -438,15 +437,14 @@ export default function TarefaDetail() {
         ) : (
           <div className="flex flex-col gap-2">
             {arquivos.map((a) => (
-              <a
+              <button
                 key={a.id}
-                href={`${API}${a.url}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-2 text-sm text-gray-700 hover:text-primary-600"
+                type="button"
+                onClick={() => abrirArquivoAutenticado(a.url)}
+                className="flex items-center gap-2 text-sm text-gray-700 hover:text-primary-600 text-left"
               >
                 <ArquivoIcon tipo={a.tipo} /> {a.nome}
-              </a>
+              </button>
             ))}
           </div>
         )}
