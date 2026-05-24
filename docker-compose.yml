@@ -21,7 +21,7 @@ services:
         condition: service_healthy
     volumes:
       - ./uploads:/app/uploads
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8001
+    command: uvicorn app.main:app --host 0.0.0.0 --port ${API_PORT:-8001}
 
   web:
     build:
@@ -29,6 +29,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:80"
+    environment:
+      - API_PORT=${API_PORT:-8001}
     depends_on:
       - api
 
