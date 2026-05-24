@@ -22,6 +22,7 @@ app = FastAPI(
     description="Plataforma educacional MVP — FastAPI + PostgreSQL",
     version="0.2.0",
     lifespan=lifespan,
+    redirect_slashes=False,
 )
 
 app.add_middleware(
