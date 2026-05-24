@@ -16,3 +16,6 @@ export const solicitarRecuperacao = (email) =>
 
 export const alterarSenha = (codigo, nova_senha) =>
   client.post('/api/v1/auth/alterar-senha', { codigo, nova_senha })
+
+export const trocarSenhaPrimeiroAcesso = (nova_senha) =>
+  client.post('/api/v1/auth/trocar-senha-primeiro-acesso', { nova_senha })

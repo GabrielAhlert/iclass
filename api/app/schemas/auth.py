@@ -18,3 +18,7 @@ class AlterarSenhaRequest(BaseModel):
 
 class SolicitarRecuperacaoRequest(BaseModel):
     email: EmailStr
+
+
+class TrocarSenhaPrimeiroAcessoRequest(BaseModel):
+    nova_senha: str

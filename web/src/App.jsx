@@ -13,6 +13,7 @@ import Perfil from './pages/Perfil'
 import Usuarios from './pages/Usuarios'
 import NovaTarefa from './pages/NovaTarefa'
 import TarefaDetail from './pages/TarefaDetail'
+import TrocarSenha from './pages/TrocarSenha'
 
 function Private({ children }) {
   return (
@@ -28,6 +29,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/trocar-senha" element={<ProtectedRoute><TrocarSenha /></ProtectedRoute>} />
           <Route path="/"           element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard"  element={<Private><Dashboard /></Private>} />
           <Route path="/turmas"     element={<Private><Turmas /></Private>} />

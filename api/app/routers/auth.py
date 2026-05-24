@@ -6,7 +6,7 @@ from sqlmodel import select
 
 from app.db import get_session
 from app.models import Usuario, CodigoRecuperacao, TipoUsuario
-from app.schemas.auth import Token, LoginRequest, AlterarSenhaRequest, SolicitarRecuperacaoRequest
+from app.schemas.auth import Token, LoginRequest, AlterarSenhaRequest, SolicitarRecuperacaoRequest, TrocarSenhaPrimeiroAcessoRequest
 from app.core.security import hash_password, verify_password, create_access_token
 from app.core.deps import get_current_user
 
@@ -88,14 +88,16 @@ async def alterar_senha(
 
 @router.post("/trocar-senha-primeiro-acesso", status_code=status.HTTP_200_OK)
 async def trocar_senha_primeiro_acesso(
-    nova_senha: str,
+    data: TrocarSenhaPrimeiroAcessoRequest,
     current_user: Usuario = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     """RF 1.3 — Troca de senha obrigatória no primeiro acesso."""
+    if len(data.nova_senha) < 6:
+        raise HTTPException(status_code=400, detail="Senha deve ter ao menos 6 caracteres")
     result = await session.exec(select(Usuario).where(Usuario.id == current_user.id))
     usuario = result.first()
-    usuario.senha_hash = hash_password(nova_senha)
+    usuario.senha_hash = hash_password(data.nova_senha)
     usuario.primeiro_acesso = False
     session.add(usuario)
     await session.commit()
