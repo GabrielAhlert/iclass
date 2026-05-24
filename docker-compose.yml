@@ -2,9 +2,9 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: iclass
-      POSTGRES_PASSWORD: iclass
-      POSTGRES_DB: iclass
+      POSTGRES_USER: ${DB_USER:-iclass}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-iclass}
+      POSTGRES_DB: ${DB_NAME:-iclass}
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
