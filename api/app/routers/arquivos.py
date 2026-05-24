@@ -35,7 +35,6 @@ async def _salvar_arquivo(upload: UploadFile) -> tuple[str, str, int, TipoArquiv
     nome_arquivo = f"{uuid.uuid4().hex}.{ext}"
     caminho = os.path.join(UPLOAD_DIR, nome_arquivo)
 
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
     with open(caminho, "wb") as f:
         f.write(conteudo)
 
