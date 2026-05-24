@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { GraduationCap } from 'lucide-react'
-import { login as apiLogin, getMe } from '../api/auth'
+import { login as apiLogin, getMeWithToken } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
 import Input from '../components/Input'
 import Button from '../components/Button'
@@ -21,12 +21,10 @@ export default function Login() {
     setLoading(true)
     try {
       const { data } = await apiLogin(form.email, form.senha)
-      localStorage.setItem('token', data.access_token)
-      const meRes = await getMe()
+      const meRes = await getMeWithToken(data.access_token)
       login(data.access_token, meRes.data)
       navigate('/dashboard')
     } catch (err) {
-      localStorage.removeItem('token')
       setError(err.response?.data?.detail || 'Credenciais inválidas')
     } finally {
       setLoading(false)

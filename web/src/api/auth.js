@@ -9,6 +9,11 @@ export const register = (data) =>
 export const getMe = () =>
   client.get('/api/v1/usuarios/me')
 
+export const getMeWithToken = (token) =>
+  client.get('/api/v1/usuarios/me', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
 export const solicitarRecuperacao = (email) =>
   client.post('/api/v1/auth/solicitar-recuperacao', { email })
 
