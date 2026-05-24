@@ -12,6 +12,7 @@ import Avaliacoes from './pages/Avaliacoes'
 import Perfil from './pages/Perfil'
 import Usuarios from './pages/Usuarios'
 import NovaTarefa from './pages/NovaTarefa'
+import TarefaDetail from './pages/TarefaDetail'
 
 function Private({ children }) {
   return (
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/turmas"     element={<Private><Turmas /></Private>} />
           <Route path="/turmas/:id" element={<Private><TurmaDetail /></Private>} />
           <Route path="/turmas/:id/tarefas/nova" element={<Private><NovaTarefa /></Private>} />
+          <Route path="/turmas/:id/tarefas/:tarefaId" element={<Private><TarefaDetail /></Private>} />
           <Route path="/tarefas"    element={<Private><Tarefas /></Private>} />
           <Route path="/resolucoes" element={<Private><Resolucoes /></Private>} />
           <Route path="/avaliacoes" element={<Private><Avaliacoes /></Private>} />
