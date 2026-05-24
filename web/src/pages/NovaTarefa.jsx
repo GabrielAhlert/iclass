@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getTurma } from '../api/turmas'
-import { criarTarefa } from '../api/tarefas'
+import { criarTarefa, uploadArquivoTarefa } from '../api/tarefas'
 import { parseApiError } from '../api/errors'
 import Button from '../components/Button'
 import Input, { Select } from '../components/Input'
 import RichTextEditor from '../components/RichTextEditor'
-import { ArrowLeft, Hash } from 'lucide-react'
+import { ArrowLeft, Hash, Upload } from 'lucide-react'
 
 const FIBONACCI_OPTIONS = [
   { label: 'Peso 1',  value: 0 }, { label: 'Peso 1',  value: 1 },
@@ -24,6 +24,7 @@ export default function NovaTarefa() {
   const [form, setForm] = useState({
     titulo: '', descricao: '', indice_fibonacci: 0, data_limite: '', prazo_fixo: false,
   })
+  const [file, setFile] = useState(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -41,7 +42,7 @@ export default function NovaTarefa() {
     setSaving(true)
     setError('')
     try {
-      await criarTarefa({
+      const res = await criarTarefa({
         titulo: form.titulo,
         descricao: form.descricao || null,
         indice_fibonacci: Number(form.indice_fibonacci),
@@ -49,6 +50,7 @@ export default function NovaTarefa() {
         prazo_fixo: form.prazo_fixo,
         turma_id: Number(id),
       })
+      if (file) await uploadArquivoTarefa(res.data.id, file)
       navigate(`/turmas/${id}`)
     } catch (err) {
       setError(parseApiError(err, 'Erro ao criar tarefa'))
@@ -114,6 +116,19 @@ export default function NovaTarefa() {
             className="rounded"
           />
           Prazo fixo — entrega após o vencimento é marcada como atrasada
+        </label>
+
+        <label className="flex items-center gap-2 border-2 border-dashed border-gray-300 rounded-xl px-4 py-3 cursor-pointer hover:border-primary-400 transition-colors">
+          <Upload size={15} className="text-gray-400 flex-shrink-0" />
+          <span className="text-sm text-gray-500 truncate">
+            {file ? file.name : 'Anexar material (opcional · PDF ou imagem, máx 5 MB)'}
+          </span>
+          <input
+            type="file"
+            accept=".pdf,image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+          />
         </label>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
