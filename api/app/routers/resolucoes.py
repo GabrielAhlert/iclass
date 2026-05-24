@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -35,14 +35,14 @@ async def entregar_resolucao(
     )
     resolucao = existing.first()
 
-    agora = datetime.now(timezone.utc)
+    agora = datetime.utcnow()
     status_entrega = StatusResolucao.entregue
 
     # RF 4.2 — verifica prazo
     if tarefa.prazo_fixo and tarefa.data_limite:
         dl = tarefa.data_limite
-        if dl.tzinfo is None:
-            dl = dl.replace(tzinfo=timezone.utc)
+        if dl.tzinfo is not None:
+            dl = dl.replace(tzinfo=None)
         if agora > dl:
             status_entrega = StatusResolucao.atrasada
 
