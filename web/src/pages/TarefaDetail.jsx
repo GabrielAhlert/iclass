@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getTarefa, getArquivosTarefa, uploadArquivoTarefa } from '../api/tarefas'
 import { getResolucoes, getResolucoesTarefa, entregarResolucao, uploadArquivoResolucao } from '../api/resolucoes'
+import { getAvaliacoes, criarAvaliacao } from '../api/avaliacoes'
 import { getUsuarios } from '../api/usuarios'
 import { parseApiError } from '../api/errors'
 import { useAuth } from '../context/AuthContext'
@@ -9,7 +10,7 @@ import Button from '../components/Button'
 import RichTextEditor from '../components/RichTextEditor'
 import { FibBadge, StatusBadge } from '../components/Badge'
 import {
-  ArrowLeft, Clock, Paperclip, FileText, Image, Loader2, Upload, CheckCircle,
+  ArrowLeft, Clock, Paperclip, FileText, Image, Loader2, Upload, CheckCircle, Star,
 } from 'lucide-react'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -20,9 +21,18 @@ function ArquivoIcon({ tipo }) {
     : <Image size={13} className="text-blue-500 flex-shrink-0" />
 }
 
+function NotaDisplay({ label, valor }) {
+  return (
+    <div className="flex flex-col items-center bg-gray-50 rounded-xl px-4 py-2.5 border border-gray-200">
+      <span className="text-xl font-bold text-gray-900">{Number(valor).toFixed(1)}</span>
+      <span className="text-xs text-gray-500 mt-0.5">{label}</span>
+    </div>
+  )
+}
+
 /* ── Entrega do aluno ─────────────────────────────────────────── */
 
-function SecaoEntrega({ resolucao, tarefaId, onRefresh }) {
+function SecaoEntrega({ resolucao, avaliacao, tarefaId, onRefresh }) {
   const [conteudo, setConteudo] = useState(resolucao?.conteudo || '')
   const [file, setFile] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -60,11 +70,32 @@ function SecaoEntrega({ resolucao, tarefaId, onRefresh }) {
         </p>
       )}
 
+      {/* Avaliação recebida */}
+      {avaliacao && (
+        <div className="flex flex-col gap-3 p-4 bg-primary-50 rounded-xl border border-primary-100">
+          <div className="flex items-center gap-2">
+            <Star size={14} className="text-primary-600" />
+            <p className="text-sm font-semibold text-primary-800">Avaliação do professor</p>
+          </div>
+          <div className="flex gap-3">
+            <NotaDisplay label="Nota" valor={avaliacao.nota} />
+            <NotaDisplay label="Participação" valor={avaliacao.participacao} />
+          </div>
+          {avaliacao.feedback && (
+            <p className="text-sm text-gray-700 leading-relaxed">{avaliacao.feedback}</p>
+          )}
+        </div>
+      )}
+
+      {/* Conteúdo entregue */}
       {resolucao?.conteudo && !canSubmit && (
-        <div
-          className="prose-content text-sm text-gray-700 bg-gray-50 rounded-xl p-4 border border-gray-100"
-          dangerouslySetInnerHTML={{ __html: resolucao.conteudo }}
-        />
+        <div>
+          <p className="text-xs font-medium text-gray-500 mb-1.5">Sua resposta</p>
+          <div
+            className="prose-content text-sm text-gray-700 bg-gray-50 rounded-xl p-4 border border-gray-100"
+            dangerouslySetInnerHTML={{ __html: resolucao.conteudo }}
+          />
+        </div>
       )}
 
       {canSubmit && (
@@ -96,26 +127,160 @@ function SecaoEntrega({ resolucao, tarefaId, onRefresh }) {
   )
 }
 
+/* ── Card de resolução (professor) ────────────────────────────── */
+
+function ResolucaoCard({ resolucao, nomeAluno, avaliacao, onAvaliado }) {
+  const [formOpen, setFormOpen] = useState(false)
+  const [nota, setNota] = useState('')
+  const [participacao, setParticipacao] = useState('')
+  const [feedback, setFeedback] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleAvaliar = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      await criarAvaliacao({
+        resolucao_id: resolucao.id,
+        nota: Number(nota),
+        participacao: Number(participacao),
+        feedback: feedback || null,
+      })
+      setFormOpen(false)
+      onAvaliado()
+    } catch (err) {
+      setError(parseApiError(err, 'Erro ao avaliar'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="py-4 first:pt-0 last:pb-0 flex flex-col gap-3 border-b border-gray-100 last:border-0">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-gray-900">{nomeAluno}</p>
+        <StatusBadge status={resolucao.status} />
+      </div>
+
+      {resolucao.data_entrega && (
+        <p className="text-xs text-gray-400">
+          {new Date(resolucao.data_entrega).toLocaleString('pt-BR')}
+        </p>
+      )}
+
+      {resolucao.conteudo && (
+        <div
+          className="prose-content text-sm text-gray-700 bg-gray-50 rounded-xl p-4 border border-gray-100"
+          dangerouslySetInnerHTML={{ __html: resolucao.conteudo }}
+        />
+      )}
+
+      {/* Avaliação existente */}
+      {avaliacao ? (
+        <div className="flex flex-col gap-2 p-3 bg-primary-50 rounded-xl border border-primary-100">
+          <div className="flex gap-3">
+            <NotaDisplay label="Nota" valor={avaliacao.nota} />
+            <NotaDisplay label="Participação" valor={avaliacao.participacao} />
+          </div>
+          {avaliacao.feedback && (
+            <p className="text-sm text-gray-700">{avaliacao.feedback}</p>
+          )}
+        </div>
+      ) : (resolucao.status === 'entregue' || resolucao.status === 'atrasada') && (
+        <>
+          {!formOpen ? (
+            <button
+              onClick={() => setFormOpen(true)}
+              className="self-start flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+            >
+              <Star size={14} /> Avaliar
+            </button>
+          ) : (
+            <form onSubmit={handleAvaliar} className="flex flex-col gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+              <p className="text-sm font-semibold text-gray-800">Avaliação</p>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-gray-600">Nota (0–10)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.5"
+                    value={nota}
+                    onChange={(e) => setNota(e.target.value)}
+                    required
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="0.0"
+                  />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-medium text-gray-600">Participação (0–10)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    step="0.5"
+                    value={participacao}
+                    onChange={(e) => setParticipacao(e.target.value)}
+                    required
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="0.0"
+                  />
+                </label>
+              </div>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-medium text-gray-600">Feedback (opcional)</span>
+                <textarea
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  rows={3}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="Comentários sobre a entrega..."
+                />
+              </label>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setFormOpen(false); setError('') }}
+                  className="flex-1 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <Button type="submit" loading={saving} className="flex-1">
+                  Confirmar
+                </Button>
+              </div>
+            </form>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 /* ── Resoluções (professor/admin) ─────────────────────────────── */
 
 function SecaoResolucoes({ tarefaId }) {
   const [resolucoes, setResolucoes] = useState([])
+  const [avaliacaoMap, setAvaliacaoMap] = useState({})
   const [alunoMap, setAlunoMap] = useState({})
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const load = () =>
     Promise.all([
       getResolucoesTarefa(tarefaId),
+      getAvaliacoes(),
       getUsuarios(),
-    ]).then(([res, users]) => {
+    ]).then(([res, avals, users]) => {
       setResolucoes(res.data)
-      setAlunoMap(
-        Object.fromEntries(
-          users.data.filter((u) => u.tipo === 'aluno').map((u) => [u.id, u.nome])
-        )
-      )
+      setAvaliacaoMap(Object.fromEntries(avals.data.map((a) => [a.resolucao_id, a])))
+      setAlunoMap(Object.fromEntries(users.data.filter((u) => u.tipo === 'aluno').map((u) => [u.id, u.nome])))
     }).catch(() => {}).finally(() => setLoading(false))
-  }, [tarefaId])
+
+  useEffect(() => { load() }, [tarefaId])
 
   if (loading) return (
     <div className="flex justify-center py-6">
@@ -133,25 +298,13 @@ function SecaoResolucoes({ tarefaId }) {
       ) : (
         <div className="flex flex-col divide-y divide-gray-100">
           {resolucoes.map((r) => (
-            <div key={r.id} className="py-4 first:pt-0 last:pb-0 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-900">
-                  {alunoMap[r.aluno_id] ?? `Aluno #${r.aluno_id}`}
-                </p>
-                <StatusBadge status={r.status} />
-              </div>
-              {r.data_entrega && (
-                <p className="text-xs text-gray-400">
-                  {new Date(r.data_entrega).toLocaleString('pt-BR')}
-                </p>
-              )}
-              {r.conteudo && (
-                <div
-                  className="prose-content text-sm text-gray-700 bg-gray-50 rounded-xl p-4 border border-gray-100"
-                  dangerouslySetInnerHTML={{ __html: r.conteudo }}
-                />
-              )}
-            </div>
+            <ResolucaoCard
+              key={r.id}
+              resolucao={r}
+              nomeAluno={alunoMap[r.aluno_id] ?? `Aluno #${r.aluno_id}`}
+              avaliacao={avaliacaoMap[r.id]}
+              onAvaliado={load}
+            />
           ))}
         </div>
       )}
@@ -169,6 +322,7 @@ export default function TarefaDetail() {
   const [tarefa, setTarefa] = useState(null)
   const [arquivos, setArquivos] = useState([])
   const [resolucao, setResolucao] = useState(null)
+  const [avaliacao, setAvaliacao] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -183,9 +337,15 @@ export default function TarefaDetail() {
     setArquivos(arqRes.data)
 
     if (isAluno) {
-      const resolRes = await getResolucoes().catch(() => ({ data: [] }))
+      const [resolRes, avalRes] = await Promise.all([
+        getResolucoes().catch(() => ({ data: [] })),
+        getAvaliacoes().catch(() => ({ data: [] })),
+      ])
       const minha = resolRes.data.find((r) => r.tarefa_id === Number(tarefaId))
       setResolucao(minha ?? null)
+      if (minha) {
+        setAvaliacao(avalRes.data.find((a) => a.resolucao_id === minha.id) ?? null)
+      }
     }
   }
 
@@ -294,7 +454,12 @@ export default function TarefaDetail() {
 
       {/* Entrega / Resoluções */}
       {isAluno
-        ? <SecaoEntrega resolucao={resolucao} tarefaId={Number(tarefaId)} onRefresh={loadData} />
+        ? <SecaoEntrega
+            resolucao={resolucao}
+            avaliacao={avaliacao}
+            tarefaId={Number(tarefaId)}
+            onRefresh={loadData}
+          />
         : <SecaoResolucoes tarefaId={tarefaId} />
       }
     </div>
