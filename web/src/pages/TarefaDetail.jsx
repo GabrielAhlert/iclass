@@ -13,7 +13,7 @@ import {
   ArrowLeft, Clock, Paperclip, FileText, Image, Loader2, Upload, CheckCircle, Star,
 } from 'lucide-react'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API = import.meta.env.VITE_API_URL || ''
 
 function ArquivoIcon({ tipo }) {
   return tipo === 'pdf'
