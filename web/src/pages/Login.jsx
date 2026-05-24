@@ -21,13 +21,12 @@ export default function Login() {
     setLoading(true)
     try {
       const { data } = await apiLogin(form.email, form.senha)
-      const me = await getMe.call(null, data.access_token)
-      // store token first so getMe interceptor picks it up
       localStorage.setItem('token', data.access_token)
       const meRes = await getMe()
       login(data.access_token, meRes.data)
       navigate('/dashboard')
     } catch (err) {
+      localStorage.removeItem('token')
       setError(err.response?.data?.detail || 'Credenciais inválidas')
     } finally {
       setLoading(false)
