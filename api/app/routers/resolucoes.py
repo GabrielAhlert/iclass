@@ -6,7 +6,7 @@ from sqlmodel import select
 from app.db import get_session
 from app.models import Resolucao, Tarefa, Usuario, TipoUsuario, StatusResolucao
 from app.schemas.resolucao import ResolucaoCreate, ResolucaoRead, ResolucaoUpdate
-from app.core.deps import get_current_user, require_role
+from app.core.deps import get_current_user, require_role, is_admin, is_professor, is_aluno
 
 router = APIRouter()
 
@@ -71,9 +71,14 @@ async def listar_resolucoes(
     session: AsyncSession = Depends(get_session),
     current_user: Usuario = Depends(get_current_user),
 ):
-    if current_user.tipo == TipoUsuario.aluno:
+    if is_aluno(current_user):
         result = await session.exec(
             select(Resolucao).where(Resolucao.aluno_id == current_user.id)
+        )
+    elif is_professor(current_user):
+        result = await session.exec(
+            select(Resolucao).join(Tarefa, Tarefa.id == Resolucao.tarefa_id)
+            .where(Tarefa.professor_id == current_user.id)
         )
     else:
         result = await session.exec(select(Resolucao))
@@ -90,17 +95,33 @@ async def get_resolucao(
     resolucao = result.first()
     if not resolucao:
         raise HTTPException(status_code=404, detail="Resolução não encontrada")
-    if current_user.tipo == TipoUsuario.aluno and resolucao.aluno_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Sem permissão")
-    return resolucao
+    if is_admin(current_user):
+        return resolucao
+    if is_aluno(current_user):
+        if resolucao.aluno_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Sem permissão")
+        return resolucao
+    if is_professor(current_user):
+        tarefa_result = await session.exec(select(Tarefa).where(Tarefa.id == resolucao.tarefa_id))
+        tarefa = tarefa_result.first()
+        if not tarefa or tarefa.professor_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Sem permissão")
+        return resolucao
+    raise HTTPException(status_code=403, detail="Sem permissão")
 
 
 @router.get("/tarefa/{tarefa_id}", response_model=list[ResolucaoRead])
 async def resolucoes_por_tarefa(
     tarefa_id: int,
     session: AsyncSession = Depends(get_session),
-    _: Usuario = Depends(require_role(TipoUsuario.professor, TipoUsuario.admin)),
+    current_user: Usuario = Depends(require_role(TipoUsuario.professor, TipoUsuario.admin)),
 ):
     """Professor visualiza todas as resoluções de uma tarefa."""
+    tarefa_result = await session.exec(select(Tarefa).where(Tarefa.id == tarefa_id))
+    tarefa = tarefa_result.first()
+    if not tarefa:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada")
+    if not is_admin(current_user) and tarefa.professor_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Não é sua tarefa")
     result = await session.exec(select(Resolucao).where(Resolucao.tarefa_id == tarefa_id))
     return result.all()

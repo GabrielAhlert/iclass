@@ -7,7 +7,10 @@ from sqlmodel import select
 from app.db import get_session
 from app.models import Arquivo, Tarefa, Resolucao, TipoArquivo, Usuario, TipoUsuario
 from app.schemas.arquivo import ArquivoRead
-from app.core.deps import get_current_user, require_role
+from app.core.deps import (
+    get_current_user, require_role,
+    is_admin, is_professor, is_aluno, aluno_pode_ver_tarefa,
+)
 
 router = APIRouter()
 
@@ -46,12 +49,15 @@ async def upload_para_tarefa(
     tarefa_id: int,
     file: UploadFile = File(...),
     session: AsyncSession = Depends(get_session),
-    _: Usuario = Depends(require_role(TipoUsuario.professor, TipoUsuario.admin)),
+    current_user: Usuario = Depends(require_role(TipoUsuario.professor, TipoUsuario.admin)),
 ):
     """RF 4.4 — Professor anexa material à tarefa (PDF ou imagem, máx 5 MB)."""
-    tarefa = await session.exec(select(Tarefa).where(Tarefa.id == tarefa_id))
-    if not tarefa.first():
+    tarefa_result = await session.exec(select(Tarefa).where(Tarefa.id == tarefa_id))
+    tarefa = tarefa_result.first()
+    if not tarefa:
         raise HTTPException(status_code=404, detail="Tarefa não encontrada")
+    if not is_admin(current_user) and tarefa.professor_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Não é sua tarefa")
 
     nome_original, url, tamanho, tipo = await _salvar_arquivo(file)
     arquivo = Arquivo(nome=nome_original, tipo=tipo, tamanho_bytes=tamanho, url=url, tarefa_id=tarefa_id)
@@ -88,8 +94,17 @@ async def upload_para_resolucao(
 async def listar_arquivos_tarefa(
     tarefa_id: int,
     session: AsyncSession = Depends(get_session),
-    _: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
+    tarefa_result = await session.exec(select(Tarefa).where(Tarefa.id == tarefa_id))
+    tarefa = tarefa_result.first()
+    if not tarefa:
+        raise HTTPException(status_code=404, detail="Tarefa não encontrada")
+    if not is_admin(current_user):
+        if is_professor(current_user) and tarefa.professor_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Sem permissão")
+        if is_aluno(current_user) and not await aluno_pode_ver_tarefa(session, current_user, tarefa):
+            raise HTTPException(status_code=403, detail="Sem permissão")
     result = await session.exec(select(Arquivo).where(Arquivo.tarefa_id == tarefa_id))
     return result.all()
 
@@ -98,7 +113,19 @@ async def listar_arquivos_tarefa(
 async def listar_arquivos_resolucao(
     resolucao_id: int,
     session: AsyncSession = Depends(get_session),
-    _: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
+    res_result = await session.exec(select(Resolucao).where(Resolucao.id == resolucao_id))
+    resolucao = res_result.first()
+    if not resolucao:
+        raise HTTPException(status_code=404, detail="Resolução não encontrada")
+    if not is_admin(current_user):
+        if is_aluno(current_user) and resolucao.aluno_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Sem permissão")
+        if is_professor(current_user):
+            tarefa_result = await session.exec(select(Tarefa).where(Tarefa.id == resolucao.tarefa_id))
+            tarefa = tarefa_result.first()
+            if not tarefa or tarefa.professor_id != current_user.id:
+                raise HTTPException(status_code=403, detail="Sem permissão")
     result = await session.exec(select(Arquivo).where(Arquivo.resolucao_id == resolucao_id))
     return result.all()

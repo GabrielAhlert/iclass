@@ -3,9 +3,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.db import get_session
-from app.models import Usuario, TipoUsuario
+from app.models import Usuario, TipoUsuario, Turma, TurmaAluno
 from app.schemas.usuario import UsuarioCreate, UsuarioRead, UsuarioUpdate
-from app.core.deps import get_current_user, require_role
+from app.core.deps import get_current_user, require_role, is_admin, is_professor
 from app.core.security import hash_password
 
 router = APIRouter()
@@ -47,12 +47,22 @@ async def criar_usuario(data: UsuarioCreate, session: AsyncSession = Depends(get
 async def get_usuario(
     usuario_id: int,
     session: AsyncSession = Depends(get_session),
-    _: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
+    current_user: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
 ):
     result = await session.exec(select(Usuario).where(Usuario.id == usuario_id))
     usuario = result.first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    if is_professor(current_user) and usuario.id != current_user.id:
+        if usuario.tipo != TipoUsuario.aluno:
+            raise HTTPException(status_code=403, detail="Sem permissão")
+        vinculo = await session.exec(
+            select(TurmaAluno)
+            .join(Turma, Turma.id == TurmaAluno.turma_id)
+            .where(TurmaAluno.aluno_id == usuario.id, Turma.professor_id == current_user.id)
+        )
+        if not vinculo.first():
+            raise HTTPException(status_code=403, detail="Sem permissão")
     return usuario
 
 

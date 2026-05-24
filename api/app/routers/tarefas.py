@@ -5,7 +5,10 @@ from sqlmodel import select
 from app.db import get_session
 from app.models import Tarefa, TarefaAluno, TurmaAluno, Usuario, TipoUsuario, Resolucao, StatusResolucao
 from app.schemas.tarefa import TarefaCreate, TarefaRead, TarefaUpdate
-from app.core.deps import get_current_user, require_role
+from app.core.deps import (
+    get_current_user, require_role,
+    is_admin, is_professor, is_aluno, aluno_pode_ver_tarefa,
+)
 
 router = APIRouter()
 
@@ -68,12 +71,17 @@ async def listar_tarefas(
 async def get_tarefa(
     tarefa_id: int,
     session: AsyncSession = Depends(get_session),
-    _: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(get_current_user),
 ):
     result = await session.exec(select(Tarefa).where(Tarefa.id == tarefa_id))
     tarefa = result.first()
     if not tarefa:
         raise HTTPException(status_code=404, detail="Tarefa não encontrada")
+    if not is_admin(current_user):
+        if is_professor(current_user) and tarefa.professor_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Sem permissão")
+        if is_aluno(current_user) and not await aluno_pode_ver_tarefa(session, current_user, tarefa):
+            raise HTTPException(status_code=403, detail="Sem permissão")
     return TarefaRead.from_tarefa(tarefa)
 
 
@@ -124,9 +132,12 @@ async def atribuir_aluno(
     current_user: Usuario = Depends(require_role(TipoUsuario.professor, TipoUsuario.admin)),
 ):
     """RF 4.1 — Atribuir tarefa individual a um aluno."""
-    tarefa = await session.exec(select(Tarefa).where(Tarefa.id == tarefa_id))
-    if not tarefa.first():
+    tarefa_result = await session.exec(select(Tarefa).where(Tarefa.id == tarefa_id))
+    tarefa = tarefa_result.first()
+    if not tarefa:
         raise HTTPException(status_code=404, detail="Tarefa não encontrada")
+    if not is_admin(current_user) and tarefa.professor_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Não é sua tarefa")
 
     aluno = await session.exec(select(Usuario).where(Usuario.id == aluno_id, Usuario.tipo == TipoUsuario.aluno))
     if not aluno.first():

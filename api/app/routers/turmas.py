@@ -5,7 +5,7 @@ from sqlmodel import select
 from app.db import get_session
 from app.models import Turma, TurmaAluno, Usuario, TipoUsuario
 from app.schemas.turma import TurmaCreate, TurmaRead, TurmaUpdate, TurmaAlunoRead
-from app.core.deps import get_current_user, require_role
+from app.core.deps import get_current_user, require_role, is_admin, is_professor, is_aluno, aluno_matriculado
 
 router = APIRouter()
 
@@ -14,18 +14,22 @@ router = APIRouter()
 async def criar_turma(
     data: TurmaCreate,
     session: AsyncSession = Depends(get_session),
-    _: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
+    current_user: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
 ):
     """RF 3.1 / RF 3.3 — Admin ou professor criam turma."""
     dup = await session.exec(select(Turma).where(Turma.codigo_identificador == data.codigo_identificador))
     if dup.first():
         raise HTTPException(status_code=409, detail="Código identificador já existe")
 
-    prof = await session.exec(select(Usuario).where(Usuario.id == data.professor_id, Usuario.tipo == TipoUsuario.professor))
+    professor_id = current_user.id if is_professor(current_user) else data.professor_id
+
+    prof = await session.exec(select(Usuario).where(Usuario.id == professor_id, Usuario.tipo == TipoUsuario.professor))
     if not prof.first():
         raise HTTPException(status_code=404, detail="Professor não encontrado")
 
-    turma = Turma(**data.model_dump())
+    payload = data.model_dump()
+    payload["professor_id"] = professor_id
+    turma = Turma(**payload)
     session.add(turma)
     await session.commit()
     await session.refresh(turma)
@@ -51,17 +55,40 @@ async def listar_turmas(
     return result.all()
 
 
-@router.get("/{turma_id}", response_model=TurmaRead)
-async def get_turma(
+async def _carregar_turma_autorizada(
     turma_id: int,
-    session: AsyncSession = Depends(get_session),
-    _: Usuario = Depends(get_current_user),
-):
+    session: AsyncSession,
+    current_user: Usuario,
+    *,
+    apenas_dono: bool = False,
+) -> Turma:
+    """Carrega turma e valida acesso. apenas_dono=True bloqueia aluno e exige professor=dono."""
     result = await session.exec(select(Turma).where(Turma.id == turma_id))
     turma = result.first()
     if not turma:
         raise HTTPException(status_code=404, detail="Turma não encontrada")
-    return turma
+    if is_admin(current_user):
+        return turma
+    if apenas_dono:
+        if is_professor(current_user) and turma.professor_id == current_user.id:
+            return turma
+        raise HTTPException(status_code=403, detail="Sem permissão")
+    if is_professor(current_user):
+        if turma.professor_id == current_user.id:
+            return turma
+    elif is_aluno(current_user):
+        if await aluno_matriculado(session, current_user.id, turma.id):
+            return turma
+    raise HTTPException(status_code=403, detail="Sem permissão")
+
+
+@router.get("/{turma_id}", response_model=TurmaRead)
+async def get_turma(
+    turma_id: int,
+    session: AsyncSession = Depends(get_session),
+    current_user: Usuario = Depends(get_current_user),
+):
+    return await _carregar_turma_autorizada(turma_id, session, current_user)
 
 
 @router.patch("/{turma_id}", response_model=TurmaRead)
@@ -69,12 +96,9 @@ async def atualizar_turma(
     turma_id: int,
     data: TurmaUpdate,
     session: AsyncSession = Depends(get_session),
-    _: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
+    current_user: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
 ):
-    result = await session.exec(select(Turma).where(Turma.id == turma_id))
-    turma = result.first()
-    if not turma:
-        raise HTTPException(status_code=404, detail="Turma não encontrada")
+    turma = await _carregar_turma_autorizada(turma_id, session, current_user, apenas_dono=True)
 
     for campo, valor in data.model_dump(exclude_none=True).items():
         setattr(turma, campo, valor)
@@ -89,12 +113,9 @@ async def atualizar_turma(
 async def remover_turma(
     turma_id: int,
     session: AsyncSession = Depends(get_session),
-    _: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
+    current_user: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
 ):
-    result = await session.exec(select(Turma).where(Turma.id == turma_id))
-    turma = result.first()
-    if not turma:
-        raise HTTPException(status_code=404, detail="Turma não encontrada")
+    turma = await _carregar_turma_autorizada(turma_id, session, current_user, apenas_dono=True)
     await session.delete(turma)
     await session.commit()
 
@@ -104,12 +125,10 @@ async def adicionar_aluno(
     turma_id: int,
     aluno_id: int,
     session: AsyncSession = Depends(get_session),
-    _: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
+    current_user: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
 ):
     """RF 3.6 — Adicionar aluno à turma."""
-    turma = await session.exec(select(Turma).where(Turma.id == turma_id))
-    if not turma.first():
-        raise HTTPException(status_code=404, detail="Turma não encontrada")
+    await _carregar_turma_autorizada(turma_id, session, current_user, apenas_dono=True)
 
     aluno = await session.exec(select(Usuario).where(Usuario.id == aluno_id, Usuario.tipo == TipoUsuario.aluno))
     if not aluno.first():
@@ -133,9 +152,10 @@ async def remover_aluno(
     turma_id: int,
     aluno_id: int,
     session: AsyncSession = Depends(get_session),
-    _: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
+    current_user: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
 ):
     """RF 3.6 — Remover aluno da turma."""
+    await _carregar_turma_autorizada(turma_id, session, current_user, apenas_dono=True)
     result = await session.exec(
         select(TurmaAluno).where(TurmaAluno.turma_id == turma_id, TurmaAluno.aluno_id == aluno_id)
     )
@@ -151,7 +171,8 @@ async def remover_aluno(
 async def listar_alunos_turma(
     turma_id: int,
     session: AsyncSession = Depends(get_session),
-    _: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
+    current_user: Usuario = Depends(require_role(TipoUsuario.admin, TipoUsuario.professor)),
 ):
+    await _carregar_turma_autorizada(turma_id, session, current_user, apenas_dono=True)
     result = await session.exec(select(TurmaAluno).where(TurmaAluno.turma_id == turma_id))
     return result.all()

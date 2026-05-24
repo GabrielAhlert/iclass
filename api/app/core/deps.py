@@ -5,7 +5,7 @@ from sqlmodel import select
 from jose import JWTError
 
 from app.db import get_session
-from app.models import Usuario, TipoUsuario
+from app.models import Usuario, TipoUsuario, TurmaAluno, TarefaAluno, Tarefa
 from app.core.security import decode_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -44,3 +44,38 @@ def require_role(*tipos: TipoUsuario):
             )
         return current_user
     return _check
+
+
+def is_admin(u: Usuario) -> bool:
+    return u.tipo == TipoUsuario.admin
+
+
+def is_professor(u: Usuario) -> bool:
+    return u.tipo == TipoUsuario.professor
+
+
+def is_aluno(u: Usuario) -> bool:
+    return u.tipo == TipoUsuario.aluno
+
+
+async def aluno_matriculado(session: AsyncSession, aluno_id: int, turma_id: int) -> bool:
+    result = await session.exec(
+        select(TurmaAluno).where(
+            TurmaAluno.aluno_id == aluno_id,
+            TurmaAluno.turma_id == turma_id,
+        )
+    )
+    return result.first() is not None
+
+
+async def aluno_pode_ver_tarefa(session: AsyncSession, aluno: Usuario, tarefa: Tarefa) -> bool:
+    if tarefa.turma_id is not None:
+        if await aluno_matriculado(session, aluno.id, tarefa.turma_id):
+            return True
+    result = await session.exec(
+        select(TarefaAluno).where(
+            TarefaAluno.aluno_id == aluno.id,
+            TarefaAluno.tarefa_id == tarefa.id,
+        )
+    )
+    return result.first() is not None
