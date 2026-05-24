@@ -28,14 +28,19 @@ services:
       - ./uploads:/app/uploads
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-  tui:
-    build: ./tui
-    stdin_open: true
-    tty: true
-    env_file: .env
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    volumes:
+      - ./web:/app
+      - /app/node_modules
     depends_on:
       - api
-    network_mode: host
 
 volumes:
   pg_data:
