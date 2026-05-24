@@ -2,12 +2,12 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
   LayoutDashboard, Users, BookOpen, ClipboardList,
-  Star, LogOut, Menu, X, GraduationCap
+  Star, LogOut, Menu, X, GraduationCap, ShieldCheck
 } from 'lucide-react'
 import { useState } from 'react'
 import { RoleBadge } from './Badge'
 
-const navItems = [
+const BASE_NAV = [
   { to: '/dashboard',  label: 'Início',      icon: LayoutDashboard },
   { to: '/turmas',     label: 'Turmas',      icon: Users },
   { to: '/tarefas',    label: 'Tarefas',     icon: BookOpen },
@@ -35,6 +35,11 @@ export default function Layout({ children }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const navItems = [
+    ...BASE_NAV,
+    ...(user?.tipo === 'admin' ? [{ to: '/usuarios', label: 'Usuários', icon: ShieldCheck }] : []),
+  ]
 
   const handleLogout = () => { logout(); navigate('/login') }
 

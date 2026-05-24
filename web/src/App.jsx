@@ -10,6 +10,7 @@ import Tarefas from './pages/Tarefas'
 import Resolucoes from './pages/Resolucoes'
 import Avaliacoes from './pages/Avaliacoes'
 import Perfil from './pages/Perfil'
+import Usuarios from './pages/Usuarios'
 
 function Private({ children }) {
   return (
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/resolucoes" element={<Private><Resolucoes /></Private>} />
           <Route path="/avaliacoes" element={<Private><Avaliacoes /></Private>} />
           <Route path="/perfil"     element={<Private><Perfil /></Private>} />
+          <Route path="/usuarios"   element={<Private><Usuarios /></Private>} />
           <Route path="*"           element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </AuthProvider>
