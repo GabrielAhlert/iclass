@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import Button from '../components/Button'
 import { Select } from '../components/Input'
 import Modal from '../components/Modal'
+import RichTextEditor from '../components/RichTextEditor'
 import { FibBadge, StatusBadge } from '../components/Badge'
 import {
   ArrowLeft, UserPlus, UserMinus, Hash, Users, BookOpen, Plus,
