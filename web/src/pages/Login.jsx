@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { GraduationCap } from 'lucide-react'
-import { login as apiLogin, getMeWithToken } from '../api/auth'
+import { login as apiLogin } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
 import Input from '../components/Input'
 import Button from '../components/Button'
+
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -20,12 +22,27 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
+      // 1. Obtém o token
       const { data } = await apiLogin(form.email, form.senha)
-      const meRes = await getMeWithToken(data.access_token)
-      login(data.access_token, meRes.data)
+      const token = data.access_token
+
+      // 2. Busca dados do usuário via fetch nativo (sem interceptor axios)
+      const resp = await fetch(`${API}/api/v1/usuarios/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}))
+        throw new Error(body.detail || 'Erro ao buscar usuário')
+      }
+
+      const userData = await resp.json()
+
+      // 3. Salva no contexto e redireciona
+      login(token, userData)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Credenciais inválidas')
+      setError(err.message || err.response?.data?.detail || 'Credenciais inválidas')
     } finally {
       setLoading(false)
     }
