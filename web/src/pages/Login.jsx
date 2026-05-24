@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { GraduationCap } from 'lucide-react'
 import { login as apiLogin } from '../api/auth'
 import { useAuth } from '../context/AuthContext'
 import Input from '../components/Input'
@@ -53,11 +52,8 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-primary-600 flex items-center justify-center mb-3 shadow-lg">
-            <GraduationCap className="text-white" size={30} />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">iClass</h1>
-          <p className="text-gray-500 text-sm mt-1">Plataforma educacional</p>
+          <img src="/logo.png" alt="iClass" className="h-28 w-auto object-contain mb-2" />
+          <p className="text-gray-500 text-sm">Plataforma educacional</p>
         </div>
 
         {/* Card */}

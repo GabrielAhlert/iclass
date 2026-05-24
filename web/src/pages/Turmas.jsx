@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getTurmas, criarTurma, getAlunosTurma, adicionarAluno, removerAluno } from '../api/turmas'
-import { getTarefas } from '../api/tarefas'
+import { getTurmas, criarTurma } from '../api/turmas'
+import { getUsuarios } from '../api/usuarios'
 import Modal from '../components/Modal'
 import Button from '../components/Button'
-import Input from '../components/Input'
+import Input, { Select } from '../components/Input'
 import { Users, Plus, ChevronRight, Hash } from 'lucide-react'
 
 function TurmaCard({ turma }) {
@@ -32,6 +32,7 @@ function TurmaCard({ turma }) {
 export default function Turmas() {
   const { user } = useAuth()
   const [turmas, setTurmas] = useState([])
+  const [professores, setProfessores] = useState([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState({ nome: '', codigo_identificador: '', professor_id: '' })
@@ -41,7 +42,20 @@ export default function Turmas() {
   const canCreate = user?.tipo === 'admin' || user?.tipo === 'professor'
 
   const load = () => getTurmas().then((r) => setTurmas(r.data)).finally(() => setLoading(false))
+
   useEffect(() => { load() }, [])
+
+  const openModal = async () => {
+    setError('')
+    setForm({ nome: '', codigo_identificador: '', professor_id: '' })
+    if (user?.tipo === 'admin' && professores.length === 0) {
+      try {
+        const r = await getUsuarios()
+        setProfessores(r.data.filter((u) => u.tipo === 'professor'))
+      } catch {}
+    }
+    setModal(true)
+  }
 
   const set = (f) => (e) => setForm((prev) => ({ ...prev, [f]: e.target.value }))
 
@@ -50,14 +64,12 @@ export default function Turmas() {
     setSaving(true)
     setError('')
     try {
-      const payload = {
+      await criarTurma({
         nome: form.nome,
         codigo_identificador: form.codigo_identificador,
         professor_id: user.tipo === 'professor' ? user.id : Number(form.professor_id),
-      }
-      await criarTurma(payload)
+      })
       setModal(false)
-      setForm({ nome: '', codigo_identificador: '', professor_id: '' })
       load()
     } catch (err) {
       setError(err.response?.data?.detail || 'Erro ao criar turma')
@@ -71,7 +83,7 @@ export default function Turmas() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Turmas</h1>
         {canCreate && (
-          <Button onClick={() => setModal(true)} className="gap-1.5">
+          <Button onClick={openModal} className="gap-1.5">
             <Plus size={16} /> Nova
           </Button>
         )}
@@ -97,7 +109,12 @@ export default function Turmas() {
           <Input label="Nome da turma" value={form.nome} onChange={set('nome')} required placeholder="Ex: 3º Ano A" />
           <Input label="Código identificador" value={form.codigo_identificador} onChange={set('codigo_identificador')} required placeholder="Ex: 3ANO-A-2024" />
           {user?.tipo === 'admin' && (
-            <Input label="ID do Professor" type="number" value={form.professor_id} onChange={set('professor_id')} required />
+            <Select label="Professor responsável" value={form.professor_id} onChange={set('professor_id')} required>
+              <option value="">Selecione um professor</option>
+              {professores.map((p) => (
+                <option key={p.id} value={p.id}>{p.nome}</option>
+              ))}
+            </Select>
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-2 pt-1">

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getTurma, getAlunosTurma, adicionarAluno, removerAluno } from '../api/turmas'
-import { getTarefas, criarTarefa } from '../api/tarefas'
+import { getTarefas, criarTarefa, uploadArquivoTarefa, getArquivosTarefa } from '../api/tarefas'
 import { getResolucoesTarefa } from '../api/resolucoes'
 import { useAuth } from '../context/AuthContext'
 import Button from '../components/Button'
@@ -10,7 +10,8 @@ import Modal from '../components/Modal'
 import { FibBadge, StatusBadge } from '../components/Badge'
 import {
   ArrowLeft, UserPlus, UserMinus, Hash, Users,
-  BookOpen, Plus, Clock, ChevronDown, ChevronUp
+  BookOpen, Plus, Clock, ChevronDown, ChevronUp,
+  Paperclip, FileText, Image, Loader2
 } from 'lucide-react'
 
 const FIBONACCI_OPTIONS = [
@@ -21,22 +22,57 @@ const FIBONACCI_OPTIONS = [
   { label: 'Peso 34', value: 8 }, { label: 'Peso 55', value: 9 },
 ]
 
-function TarefaRow({ tarefa }) {
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+function ArquivoIcon({ tipo }) {
+  return tipo === 'pdf'
+    ? <FileText size={12} className="text-red-500" />
+    : <Image size={12} className="text-blue-500" />
+}
+
+function TarefaRow({ tarefa, canManage }) {
   const [open, setOpen] = useState(false)
   const [resolucoes, setResolucoes] = useState([])
+  const [arquivos, setArquivos] = useState([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const fileRef = useRef(null)
 
-  const loadResolucoes = async () => {
-    if (!open) {
-      const r = await getResolucoesTarefa(tarefa.id).catch(() => ({ data: [] }))
-      setResolucoes(r.data)
-    }
+  const loadData = async () => {
+    const [res, arqs] = await Promise.all([
+      getResolucoesTarefa(tarefa.id).catch(() => ({ data: [] })),
+      getArquivosTarefa(tarefa.id).catch(() => ({ data: [] })),
+    ])
+    setResolucoes(res.data)
+    setArquivos(arqs.data)
+  }
+
+  const toggle = async () => {
+    if (!open) await loadData()
     setOpen((v) => !v)
+  }
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setUploadError('')
+    try {
+      await uploadArquivoTarefa(tarefa.id, file)
+      const r = await getArquivosTarefa(tarefa.id)
+      setArquivos(r.data)
+    } catch (err) {
+      setUploadError(err.response?.data?.detail || 'Erro ao enviar arquivo')
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden">
       <button
-        onClick={loadResolucoes}
+        onClick={toggle}
         className="w-full flex items-center gap-3 p-3 bg-white hover:bg-gray-50 transition-colors text-left"
       >
         <div className="flex-1 min-w-0">
@@ -56,21 +92,67 @@ function TarefaRow({ tarefa }) {
       </button>
 
       {open && (
-        <div className="border-t border-gray-100 bg-gray-50 px-3 py-2">
-          {tarefa.descricao && <p className="text-xs text-gray-600 mb-2">{tarefa.descricao}</p>}
-          <p className="text-xs font-medium text-gray-500 mb-1">Resoluções</p>
-          {resolucoes.length === 0 ? (
-            <p className="text-xs text-gray-400">Nenhuma entrega ainda</p>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {resolucoes.map((r) => (
-                <div key={r.id} className="flex items-center justify-between text-xs">
-                  <span className="text-gray-600">Aluno #{r.aluno_id}</span>
-                  <StatusBadge status={r.status} />
-                </div>
-              ))}
+        <div className="border-t border-gray-100 bg-gray-50 px-3 py-2 flex flex-col gap-3">
+          {tarefa.descricao && <p className="text-xs text-gray-600">{tarefa.descricao}</p>}
+
+          {/* Arquivos */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium text-gray-500">Materiais</p>
+              {canManage && (
+                <label className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 cursor-pointer">
+                  {uploading
+                    ? <Loader2 size={12} className="animate-spin" />
+                    : <Paperclip size={12} />}
+                  Anexar
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept=".pdf,image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleUpload}
+                    disabled={uploading}
+                  />
+                </label>
+              )}
             </div>
-          )}
+            {uploadError && <p className="text-xs text-red-500 mb-1">{uploadError}</p>}
+            {arquivos.length === 0 ? (
+              <p className="text-xs text-gray-400">Nenhum material anexado</p>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {arquivos.map((a) => (
+                  <a
+                    key={a.id}
+                    href={`${API}${a.url}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-gray-700 hover:text-primary-600"
+                  >
+                    <ArquivoIcon tipo={a.tipo} />
+                    {a.nome}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Resoluções */}
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-1">Resoluções</p>
+            {resolucoes.length === 0 ? (
+              <p className="text-xs text-gray-400">Nenhuma entrega ainda</p>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {resolucoes.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600">Aluno #{r.aluno_id}</span>
+                    <StatusBadge status={r.status} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -196,7 +278,7 @@ export default function TurmaDetail() {
           <p className="text-gray-400 text-sm text-center py-4">Nenhuma tarefa nesta turma</p>
         ) : (
           <div className="flex flex-col gap-2">
-            {tarefas.map((t) => <TarefaRow key={t.id} tarefa={t} />)}
+            {tarefas.map((t) => <TarefaRow key={t.id} tarefa={t} canManage={canManage} />)}
           </div>
         )}
       </div>

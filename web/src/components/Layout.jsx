@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
   LayoutDashboard, Users, BookOpen, ClipboardList,
-  Star, LogOut, Menu, X, GraduationCap, ShieldCheck
+  Star, LogOut, Menu, X, ShieldCheck
 } from 'lucide-react'
 import { useState } from 'react'
 import { RoleBadge } from './Badge'
@@ -47,9 +47,8 @@ export default function Layout({ children }) {
     <div className="min-h-screen bg-gray-50 flex">
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col w-60 bg-white border-r border-gray-200 fixed inset-y-0 left-0 z-30">
-        <div className="flex items-center gap-2 px-5 py-5 border-b">
-          <GraduationCap className="text-primary-600" size={24} />
-          <span className="text-xl font-bold text-gray-900">iClass</span>
+        <div className="flex items-center justify-center px-5 py-4 border-b">
+          <img src="/logo.png" alt="iClass" className="h-14 w-auto object-contain" />
         </div>
         <nav className="flex-1 p-3 flex flex-col gap-1">
           {navItems.map((item) => <NavItem key={item.to} {...item} />)}
@@ -79,9 +78,8 @@ export default function Layout({ children }) {
           <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
           <aside className="relative w-64 bg-white flex flex-col shadow-xl">
             <div className="flex items-center justify-between px-5 py-5 border-b">
-              <div className="flex items-center gap-2">
-                <GraduationCap className="text-primary-600" size={22} />
-                <span className="text-lg font-bold">iClass</span>
+              <div className="flex items-center">
+                <img src="/logo.png" alt="iClass" className="h-10 w-auto object-contain" />
               </div>
               <button onClick={() => setSidebarOpen(false)}><X size={20} /></button>
             </div>
@@ -118,9 +116,8 @@ export default function Layout({ children }) {
           <button onClick={() => setSidebarOpen(true)} className="p-1 rounded-lg hover:bg-gray-100">
             <Menu size={22} className="text-gray-700" />
           </button>
-          <div className="flex items-center gap-2">
-            <GraduationCap className="text-primary-600" size={20} />
-            <span className="font-bold text-gray-900">iClass</span>
+          <div className="flex items-center">
+            <img src="/logo.png" alt="iClass" className="h-8 w-auto object-contain" />
           </div>
         </header>
 
