@@ -6,6 +6,7 @@ from app.models import StatusResolucao
 
 class ResolucaoCreate(BaseModel):
     tarefa_id: int
+    conteudo: Optional[str] = None
 
 
 class ResolucaoRead(BaseModel):
@@ -14,6 +15,7 @@ class ResolucaoRead(BaseModel):
     aluno_id: int
     data_entrega: Optional[datetime]
     status: StatusResolucao
+    conteudo: Optional[str]
     created_at: datetime
 
     class Config:

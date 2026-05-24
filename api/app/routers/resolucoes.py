@@ -49,6 +49,7 @@ async def entregar_resolucao(
     if resolucao:
         resolucao.data_entrega = agora
         resolucao.status = status_entrega
+        resolucao.conteudo = data.conteudo
         session.add(resolucao)
     else:
         resolucao = Resolucao(
@@ -56,6 +57,7 @@ async def entregar_resolucao(
             aluno_id=current_user.id,
             data_entrega=agora,
             status=status_entrega,
+            conteudo=data.conteudo,
         )
         session.add(resolucao)
 

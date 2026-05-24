@@ -103,6 +103,7 @@ class Resolucao(SQLModel, table=True):
     aluno_id: int = Field(foreign_key="usuarios.id")
     data_entrega: Optional[datetime] = Field(default=None)
     status: StatusResolucao = Field(default=StatusResolucao.pendente)
+    conteudo: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

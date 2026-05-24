@@ -7,8 +7,9 @@ import { getUsuarios } from '../api/usuarios'
 import { parseApiError } from '../api/errors'
 import { useAuth } from '../context/AuthContext'
 import Button from '../components/Button'
-import Input, { Select, Textarea } from '../components/Input'
+import Input, { Select } from '../components/Input'
 import Modal from '../components/Modal'
+import RichTextEditor from '../components/RichTextEditor'
 import { FibBadge, StatusBadge } from '../components/Badge'
 import {
   ArrowLeft, UserPlus, UserMinus, Hash, Users, BookOpen, Plus,
@@ -97,7 +98,9 @@ function TarefaRowProfessor({ tarefa, alunoMap }) {
 
       {open && (
         <div className="border-t border-gray-100 bg-gray-50 px-3 py-2 flex flex-col gap-3">
-          {tarefa.descricao && <p className="text-xs text-gray-600">{tarefa.descricao}</p>}
+          {tarefa.descricao && (
+            <div className="prose-content text-xs text-gray-600" dangerouslySetInnerHTML={{ __html: tarefa.descricao }} />
+          )}
 
           <div>
             <div className="flex items-center justify-between mb-1">
@@ -135,11 +138,16 @@ function TarefaRowProfessor({ tarefa, alunoMap }) {
             {resolucoes.length === 0 ? (
               <p className="text-xs text-gray-400">Nenhuma entrega ainda</p>
             ) : (
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-2">
                 {resolucoes.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600">{alunoMap[r.aluno_id] ?? `Aluno #${r.aluno_id}`}</span>
-                    <StatusBadge status={r.status} />
+                  <div key={r.id} className="flex flex-col gap-1 border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-600 font-medium">{alunoMap[r.aluno_id] ?? `Aluno #${r.aluno_id}`}</span>
+                      <StatusBadge status={r.status} />
+                    </div>
+                    {r.conteudo && (
+                      <div className="prose-content text-xs text-gray-500 bg-white rounded-lg p-2 border border-gray-100" dangerouslySetInnerHTML={{ __html: r.conteudo }} />
+                    )}
                   </div>
                 ))}
               </div>
@@ -157,6 +165,7 @@ function TarefaCardAluno({ tarefa, resolucao, onRefresh }) {
   const [expanded, setExpanded] = useState(false)
   const [arquivos, setArquivos] = useState([])
   const [file, setFile] = useState(null)
+  const [conteudo, setConteudo] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [arquivosLoaded, setArquivosLoaded] = useState(false)
@@ -179,7 +188,7 @@ function TarefaCardAluno({ tarefa, resolucao, onRefresh }) {
     setSaving(true)
     setError('')
     try {
-      const res = await entregarResolucao(tarefa.id)
+      const res = await entregarResolucao(tarefa.id, conteudo)
       if (file) await uploadArquivoResolucao(res.data.id, file)
       setExpanded(false)
       setFile(null)
@@ -216,7 +225,9 @@ function TarefaCardAluno({ tarefa, resolucao, onRefresh }) {
 
       {expanded && (
         <div className="border-t border-gray-100 bg-gray-50 px-3 py-3 flex flex-col gap-3">
-          {tarefa.descricao && <p className="text-xs text-gray-600">{tarefa.descricao}</p>}
+          {tarefa.descricao && (
+            <div className="prose-content text-xs text-gray-600" dangerouslySetInnerHTML={{ __html: tarefa.descricao }} />
+          )}
 
           {arquivos.length > 0 && (
             <div>
@@ -238,8 +249,19 @@ function TarefaCardAluno({ tarefa, resolucao, onRefresh }) {
             </p>
           )}
 
+          {resolucao?.conteudo && !canSubmit && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">Sua resposta</p>
+              <div className="prose-content text-xs text-gray-700 bg-white rounded-lg p-2.5 border border-gray-200" dangerouslySetInnerHTML={{ __html: resolucao.conteudo }} />
+            </div>
+          )}
+
           {canSubmit && (
             <>
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Resposta (opcional)</p>
+                <RichTextEditor value={conteudo} onChange={setConteudo} />
+              </div>
               <label className="flex items-center gap-2 border-2 border-dashed border-gray-300 rounded-xl px-3 py-2.5 cursor-pointer hover:border-primary-400 transition-colors">
                 <Upload size={14} className="text-gray-400 flex-shrink-0" />
                 <span className="text-xs text-gray-500 truncate">
@@ -470,7 +492,13 @@ export default function TurmaDetail() {
       <Modal open={modalTarefa} onClose={() => setModalTarefa(false)} title="Nova Tarefa">
         <form onSubmit={handleCriarTarefa} className="flex flex-col gap-4">
           <Input label="Título" value={formTarefa.titulo} onChange={setT('titulo')} required placeholder="Ex: Lista de exercícios 1" />
-          <Textarea label="Descrição (opcional)" value={formTarefa.descricao} onChange={setT('descricao')} placeholder="Descreva a atividade..." />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição (opcional)</label>
+            <RichTextEditor
+              value={formTarefa.descricao}
+              onChange={(html) => setFormTarefa((p) => ({ ...p, descricao: html }))}
+            />
+          </div>
           <Select label="Peso (Fibonacci)" value={formTarefa.indice_fibonacci} onChange={setT('indice_fibonacci')}>
             {FIBONACCI_OPTIONS.map((o, i) => (
               <option key={i} value={o.value}>{o.label}</option>
