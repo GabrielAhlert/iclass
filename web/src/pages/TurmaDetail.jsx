@@ -1,29 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getTurma, getAlunosTurma, adicionarAluno, removerAluno } from '../api/turmas'
-import { getTarefas, criarTarefa, uploadArquivoTarefa, getArquivosTarefa } from '../api/tarefas'
+import { getTarefas, uploadArquivoTarefa, getArquivosTarefa } from '../api/tarefas'
 import { getResolucoes, getResolucoesTarefa, entregarResolucao, uploadArquivoResolucao } from '../api/resolucoes'
 import { getUsuarios } from '../api/usuarios'
 import { parseApiError } from '../api/errors'
 import { useAuth } from '../context/AuthContext'
 import Button from '../components/Button'
-import Input, { Select } from '../components/Input'
+import { Select } from '../components/Input'
 import Modal from '../components/Modal'
-import RichTextEditor from '../components/RichTextEditor'
 import { FibBadge, StatusBadge } from '../components/Badge'
 import {
   ArrowLeft, UserPlus, UserMinus, Hash, Users, BookOpen, Plus,
   Clock, ChevronDown, ChevronUp, Paperclip, FileText, Image,
   Loader2, Upload, CheckCircle,
 } from 'lucide-react'
-
-const FIBONACCI_OPTIONS = [
-  { label: 'Peso 1',  value: 0 }, { label: 'Peso 1',  value: 1 },
-  { label: 'Peso 2',  value: 2 }, { label: 'Peso 3',  value: 3 },
-  { label: 'Peso 5',  value: 4 }, { label: 'Peso 8',  value: 5 },
-  { label: 'Peso 13', value: 6 }, { label: 'Peso 21', value: 7 },
-  { label: 'Peso 34', value: 8 }, { label: 'Peso 55', value: 9 },
-]
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -302,13 +293,9 @@ export default function TurmaDetail() {
   const [todosAlunos, setTodosAlunos] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalAluno, setModalAluno] = useState(false)
-  const [modalTarefa, setModalTarefa] = useState(false)
   const [alunoId, setAlunoId] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [formTarefa, setFormTarefa] = useState({
-    titulo: '', descricao: '', indice_fibonacci: 0, data_limite: '', prazo_fixo: false,
-  })
 
   const loadTarefas = () =>
     getTarefas().then((r) => setTarefas(r.data.filter((t) => t.turma_id === Number(id)))).catch(() => {})
@@ -338,11 +325,6 @@ export default function TurmaDetail() {
 
   const resolucaoMap = Object.fromEntries(resolucoes.map((r) => [r.tarefa_id, r]))
 
-  const setT = (f) => (e) => {
-    const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
-    setFormTarefa((prev) => ({ ...prev, [f]: val }))
-  }
-
   const handleAddAluno = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -354,29 +336,6 @@ export default function TurmaDetail() {
       loadAlunos()
     } catch (err) {
       setError(parseApiError(err, 'Erro ao adicionar aluno'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleCriarTarefa = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    setError('')
-    try {
-      await criarTarefa({
-        titulo: formTarefa.titulo,
-        descricao: formTarefa.descricao || null,
-        indice_fibonacci: Number(formTarefa.indice_fibonacci),
-        data_limite: formTarefa.data_limite || null,
-        prazo_fixo: formTarefa.prazo_fixo,
-        turma_id: Number(id),
-      })
-      setModalTarefa(false)
-      setFormTarefa({ titulo: '', descricao: '', indice_fibonacci: 0, data_limite: '', prazo_fixo: false })
-      loadTarefas()
-    } catch (err) {
-      setError(parseApiError(err, 'Erro ao criar tarefa'))
     } finally {
       setSaving(false)
     }
@@ -423,9 +382,12 @@ export default function TurmaDetail() {
             <h2 className="font-semibold text-gray-900">Tarefas ({tarefas.length})</h2>
           </div>
           {canManage && (
-            <Button onClick={() => { setError(''); setModalTarefa(true) }} className="gap-1.5 text-xs px-3 py-1.5">
+            <Link
+              to={`/turmas/${id}/tarefas/nova`}
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition-colors"
+            >
               <Plus size={14} /> Nova tarefa
-            </Button>
+            </Link>
           )}
         </div>
         {tarefas.length === 0 ? (
@@ -487,35 +449,6 @@ export default function TurmaDetail() {
           )}
         </div>
       )}
-
-      {/* Modal: nova tarefa */}
-      <Modal open={modalTarefa} onClose={() => setModalTarefa(false)} title="Nova Tarefa">
-        <form onSubmit={handleCriarTarefa} className="flex flex-col gap-4">
-          <Input label="Título" value={formTarefa.titulo} onChange={setT('titulo')} required placeholder="Ex: Lista de exercícios 1" />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição (opcional)</label>
-            <RichTextEditor
-              value={formTarefa.descricao}
-              onChange={(html) => setFormTarefa((p) => ({ ...p, descricao: html }))}
-            />
-          </div>
-          <Select label="Peso (Fibonacci)" value={formTarefa.indice_fibonacci} onChange={setT('indice_fibonacci')}>
-            {FIBONACCI_OPTIONS.map((o, i) => (
-              <option key={i} value={o.value}>{o.label}</option>
-            ))}
-          </Select>
-          <Input label="Prazo (opcional)" type="datetime-local" value={formTarefa.data_limite} onChange={setT('data_limite')} />
-          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input type="checkbox" checked={formTarefa.prazo_fixo} onChange={setT('prazo_fixo')} className="rounded" />
-            Prazo fixo (após vencimento = atrasada)
-          </label>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <div className="flex gap-2 pt-1">
-            <Button type="button" variant="secondary" className="flex-1" onClick={() => setModalTarefa(false)}>Cancelar</Button>
-            <Button type="submit" loading={saving} className="flex-1">Criar</Button>
-          </div>
-        </form>
-      </Modal>
 
       {/* Modal: adicionar aluno */}
       <Modal open={modalAluno} onClose={() => setModalAluno(false)} title="Adicionar aluno">
