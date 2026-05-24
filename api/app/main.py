@@ -8,11 +8,12 @@ from app.db import init_db
 from app.routers import auth, usuarios, turmas, tarefas, resolucoes, avaliacoes, arquivos
 
 UPLOAD_DIR = "/app/uploads"
+if not os.path.isdir(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
     await init_db()
     yield
 
