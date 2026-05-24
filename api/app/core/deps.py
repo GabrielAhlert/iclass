@@ -5,7 +5,7 @@ from sqlmodel import select
 from jose import JWTError
 
 from app.db import get_session
-from app.models import User, Role
+from app.models import Usuario, TipoUsuario
 from app.core.security import decode_token
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
@@ -14,10 +14,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     session: AsyncSession = Depends(get_session),
-) -> User:
+) -> Usuario:
     credentials_exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Credenciais inválidas",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -28,19 +28,19 @@ async def get_current_user(
     except JWTError:
         raise credentials_exc
 
-    result = await session.exec(select(User).where(User.id == int(user_id)))
-    user = result.first()
-    if user is None or not user.is_active:
+    result = await session.exec(select(Usuario).where(Usuario.id == int(user_id)))
+    usuario = result.first()
+    if usuario is None or not usuario.is_active:
         raise credentials_exc
-    return user
+    return usuario
 
 
-def require_role(*roles: Role):
-    def _check(current_user: User = Depends(get_current_user)) -> User:
-        if current_user.role not in roles:
+def require_role(*tipos: TipoUsuario):
+    def _check(current_user: Usuario = Depends(get_current_user)) -> Usuario:
+        if current_user.tipo not in tipos:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions",
+                detail="Permissão insuficiente",
             )
         return current_user
     return _check

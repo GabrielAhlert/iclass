@@ -1,4 +1,4 @@
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field
 from typing import Optional
 from enum import Enum
 from datetime import datetime
@@ -6,65 +6,128 @@ from datetime import datetime
 FIBONACCI = [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
 
 
-class Role(str, Enum):
-    student = "student"
-    teacher = "teacher"
+class TipoUsuario(str, Enum):
+    aluno = "aluno"
+    professor = "professor"
     admin = "admin"
 
 
-class TaskStatus(str, Enum):
-    pending = "pending"
-    in_progress = "in_progress"
-    done = "done"
+class TipoArquivo(str, Enum):
+    pdf = "pdf"
+    imagem = "imagem"
 
 
-class User(SQLModel, table=True):
-    __tablename__ = "users"
+class StatusResolucao(str, Enum):
+    pendente = "pendente"
+    entregue = "entregue"
+    avaliada = "avaliada"
+    atrasada = "atrasada"
+
+
+class Usuario(SQLModel, table=True):
+    __tablename__ = "usuarios"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    name: str = Field(max_length=128)
+    nome: str = Field(max_length=128)
     email: str = Field(unique=True, index=True, max_length=256)
-    hashed_password: str
-    role: Role = Field(default=Role.student)
+    senha_hash: str
+    tipo: TipoUsuario = Field(default=TipoUsuario.aluno)
+    matricula: Optional[str] = Field(default=None, max_length=32)
+    primeiro_acesso: bool = Field(default=True)
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    tasks_created: list["Task"] = Relationship(back_populates="creator")
-    evaluations: list["Evaluation"] = Relationship(back_populates="student")
 
-
-class Task(SQLModel, table=True):
-    __tablename__ = "tasks"
+class CodigoRecuperacao(SQLModel, table=True):
+    __tablename__ = "codigos_recuperacao"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    title: str = Field(max_length=256)
-    description: Optional[str] = Field(default=None)
-    # Index into FIBONACCI (0-9) → weight 1, 1, 2, 3, 5, 8, 13, 21, 34, 55
-    weight_index: int = Field(default=0, ge=0, le=9)
-    status: TaskStatus = Field(default=TaskStatus.pending)
-    due_date: Optional[datetime] = None
+    usuario_id: int = Field(foreign_key="usuarios.id")
+    codigo: str = Field(max_length=64)
+    expira_em: datetime
+    utilizado: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    creator_id: int = Field(foreign_key="users.id")
-    creator: Optional[User] = Relationship(back_populates="tasks_created")
-    evaluations: list["Evaluation"] = Relationship(back_populates="task")
 
-    @property
-    def weight(self) -> int:
-        return FIBONACCI[self.weight_index]
-
-
-class Evaluation(SQLModel, table=True):
-    __tablename__ = "evaluations"
+class Turma(SQLModel, table=True):
+    __tablename__ = "turmas"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    grade: float = Field(ge=0.0, le=10.0)           # qualidade
-    participation: float = Field(ge=0.0, le=10.0)   # engajamento / pontualidade
+    nome: str = Field(max_length=128)
+    codigo_identificador: str = Field(unique=True, index=True, max_length=32)
+    professor_id: int = Field(foreign_key="usuarios.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TurmaAluno(SQLModel, table=True):
+    __tablename__ = "turmas_alunos"
+
+    turma_id: int = Field(foreign_key="turmas.id", primary_key=True)
+    aluno_id: int = Field(foreign_key="usuarios.id", primary_key=True)
+    data_matricula: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Tarefa(SQLModel, table=True):
+    __tablename__ = "tarefas"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    titulo: str = Field(max_length=256)
+    descricao: Optional[str] = Field(default=None)
+    # Índice 0-9 na sequência FIBONACCI → pesos 1, 1, 2, 3, 5, 8, 13, 21, 34, 55
+    indice_fibonacci: int = Field(default=0, ge=0, le=9)
+    data_limite: Optional[datetime] = Field(default=None)
+    prazo_fixo: bool = Field(default=False)
+    turma_id: Optional[int] = Field(default=None, foreign_key="turmas.id")
+    professor_id: int = Field(foreign_key="usuarios.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    @property
+    def peso_fibonacci(self) -> int:
+        return FIBONACCI[self.indice_fibonacci]
+
+
+class TarefaAluno(SQLModel, table=True):
+    """Atribuição individual de tarefa a aluno (quando turma_id é nulo)."""
+    __tablename__ = "tarefas_alunos"
+
+    tarefa_id: int = Field(foreign_key="tarefas.id", primary_key=True)
+    aluno_id: int = Field(foreign_key="usuarios.id", primary_key=True)
+
+
+class Resolucao(SQLModel, table=True):
+    """Entrega de um aluno para uma tarefa."""
+    __tablename__ = "resolucoes"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    tarefa_id: int = Field(foreign_key="tarefas.id")
+    aluno_id: int = Field(foreign_key="usuarios.id")
+    data_entrega: Optional[datetime] = Field(default=None)
+    status: StatusResolucao = Field(default=StatusResolucao.pendente)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Arquivo(SQLModel, table=True):
+    """Arquivo anexado a uma tarefa (professor) ou resolução (aluno)."""
+    __tablename__ = "arquivos"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    nome: str = Field(max_length=256)
+    tipo: TipoArquivo
+    tamanho_bytes: int
+    url: str = Field(max_length=512)
+    tarefa_id: Optional[int] = Field(default=None, foreign_key="tarefas.id")
+    resolucao_id: Optional[int] = Field(default=None, foreign_key="resolucoes.id")
+    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Avaliacao(SQLModel, table=True):
+    """Avaliação do professor sobre a resolução de um aluno."""
+    __tablename__ = "avaliacoes"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    resolucao_id: int = Field(foreign_key="resolucoes.id", unique=True)
+    professor_id: int = Field(foreign_key="usuarios.id")
+    nota: float = Field(ge=0.0, le=10.0)
+    participacao: float = Field(ge=0.0, le=10.0)
     feedback: Optional[str] = Field(default=None)
-    evaluated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    student_id: int = Field(foreign_key="users.id")
-    task_id: int = Field(foreign_key="tasks.id")
-
-    student: Optional[User] = Relationship(back_populates="evaluations")
-    task: Optional[Task] = Relationship(back_populates="evaluations")
+    data_avaliacao: datetime = Field(default_factory=datetime.utcnow)

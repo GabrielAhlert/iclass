@@ -1,13 +1,18 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 
 from app.db import init_db
-from app.routers import auth, users, tasks, evaluations
+from app.routers import auth, usuarios, turmas, tarefas, resolucoes, avaliacoes, arquivos
+
+UPLOAD_DIR = "/app/uploads"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
     await init_db()
     yield
 
@@ -15,7 +20,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="iClass API",
     description="Plataforma educacional MVP — FastAPI + PostgreSQL",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -26,12 +31,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
 app.include_router(auth.router,        prefix="/api/v1/auth",        tags=["auth"])
-app.include_router(users.router,       prefix="/api/v1/users",       tags=["users"])
-app.include_router(tasks.router,       prefix="/api/v1/tasks",       tags=["tasks"])
-app.include_router(evaluations.router, prefix="/api/v1/evaluations", tags=["evaluations"])
+app.include_router(usuarios.router,    prefix="/api/v1/usuarios",    tags=["usuarios"])
+app.include_router(turmas.router,      prefix="/api/v1/turmas",      tags=["turmas"])
+app.include_router(tarefas.router,     prefix="/api/v1/tarefas",     tags=["tarefas"])
+app.include_router(resolucoes.router,  prefix="/api/v1/resolucoes",  tags=["resolucoes"])
+app.include_router(avaliacoes.router,  prefix="/api/v1/avaliacoes",  tags=["avaliacoes"])
+app.include_router(arquivos.router,    prefix="/api/v1/arquivos",    tags=["arquivos"])
 
 
 @app.get("/health", tags=["health"])
 async def health():
-    return {"status": "ok", "service": "iclass-api"}
+    return {"status": "ok", "service": "iclass-api", "version": "0.2.0"}
