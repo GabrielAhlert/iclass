@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getTurma, getAlunosTurma, adicionarAluno, removerAluno } from '../api/turmas'
 import { getTarefas, criarTarefa, uploadArquivoTarefa, getArquivosTarefa } from '../api/tarefas'
+import { parseApiError } from '../api/errors'
 import { getResolucoesTarefa } from '../api/resolucoes'
 import { useAuth } from '../context/AuthContext'
 import Button from '../components/Button'
@@ -62,7 +63,7 @@ function TarefaRow({ tarefa, canManage }) {
       const r = await getArquivosTarefa(tarefa.id)
       setArquivos(r.data)
     } catch (err) {
-      setUploadError(err.response?.data?.detail || 'Erro ao enviar arquivo')
+      setUploadError(parseApiError(err, 'Erro ao enviar arquivo'))
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -204,7 +205,7 @@ export default function TurmaDetail() {
       setAlunoId('')
       loadAlunos()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao adicionar aluno')
+      setError(parseApiError(err, 'Erro ao adicionar aluno'))
     } finally {
       setSaving(false)
     }
@@ -227,7 +228,7 @@ export default function TurmaDetail() {
       setFormTarefa({ titulo: '', descricao: '', indice_fibonacci: 0, data_limite: '', prazo_fixo: false })
       loadTarefas()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao criar tarefa')
+      setError(parseApiError(err, 'Erro ao criar tarefa'))
     } finally {
       setSaving(false)
     }

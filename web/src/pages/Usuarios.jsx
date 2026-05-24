@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getUsuarios, criarUsuario, atualizarUsuario } from '../api/usuarios'
+import { parseApiError } from '../api/errors'
 import { RoleBadge } from '../components/Badge'
 import Button from '../components/Button'
 import Input, { Select } from '../components/Input'
@@ -45,7 +46,7 @@ export default function Usuarios() {
       setForm({ nome: '', email: '', senha: '', tipo: 'aluno', matricula: '' })
       load()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao criar usuário')
+      setError(parseApiError(err, 'Erro ao criar usuário'))
     } finally {
       setSaving(false)
     }

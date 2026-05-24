@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getTurmas, criarTurma } from '../api/turmas'
 import { getUsuarios } from '../api/usuarios'
+import { parseApiError } from '../api/errors'
 import Modal from '../components/Modal'
 import Button from '../components/Button'
 import Input, { Select } from '../components/Input'
@@ -72,7 +73,7 @@ export default function Turmas() {
       setModal(false)
       load()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao criar turma')
+      setError(parseApiError(err, 'Erro ao criar turma'))
     } finally {
       setSaving(false)
     }
