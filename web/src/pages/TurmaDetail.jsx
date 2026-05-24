@@ -4,6 +4,7 @@ import { getTurma, getAlunosTurma, adicionarAluno, removerAluno } from '../api/t
 import { getTarefas, criarTarefa, uploadArquivoTarefa, getArquivosTarefa } from '../api/tarefas'
 import { parseApiError } from '../api/errors'
 import { getResolucoesTarefa } from '../api/resolucoes'
+import { getUsuarios } from '../api/usuarios'
 import { useAuth } from '../context/AuthContext'
 import Button from '../components/Button'
 import Input, { Select, Textarea } from '../components/Input'
@@ -31,7 +32,7 @@ function ArquivoIcon({ tipo }) {
     : <Image size={12} className="text-blue-500" />
 }
 
-function TarefaRow({ tarefa, canManage }) {
+function TarefaRow({ tarefa, canManage, alunoMap }) {
   const [open, setOpen] = useState(false)
   const [resolucoes, setResolucoes] = useState([])
   const [arquivos, setArquivos] = useState([])
@@ -147,7 +148,9 @@ function TarefaRow({ tarefa, canManage }) {
               <div className="flex flex-col gap-1">
                 {resolucoes.map((r) => (
                   <div key={r.id} className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600">Aluno #{r.aluno_id}</span>
+                    <span className="text-gray-600">
+                      {alunoMap[r.aluno_id] ?? `Aluno #${r.aluno_id}`}
+                    </span>
                     <StatusBadge status={r.status} />
                   </div>
                 ))}
@@ -165,6 +168,7 @@ export default function TurmaDetail() {
   const { user } = useAuth()
   const [turma, setTurma] = useState(null)
   const [alunos, setAlunos] = useState([])
+  const [todosAlunos, setTodosAlunos] = useState([])
   const [tarefas, setTarefas] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalAluno, setModalAluno] = useState(false)
@@ -187,12 +191,26 @@ export default function TurmaDetail() {
       getTurma(id).then((r) => setTurma(r.data)),
       loadAlunos(),
       loadTarefas(),
+      getUsuarios().then((r) => setTodosAlunos(r.data.filter((u) => u.tipo === 'aluno'))).catch(() => {}),
     ]).finally(() => setLoading(false))
   }, [id])
+
+  // id → nome lookup para exibição
+  const alunoMap = Object.fromEntries(todosAlunos.map((u) => [u.id, u.nome]))
+
+  // alunos que ainda não estão na turma (para o select do modal)
+  const matriculadosIds = new Set(alunos.map((a) => a.aluno_id))
+  const alunosDisponiveis = todosAlunos.filter((u) => !matriculadosIds.has(u.id))
 
   const setT = (f) => (e) => {
     const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value
     setFormTarefa((prev) => ({ ...prev, [f]: val }))
+  }
+
+  const openModalAluno = () => {
+    setError('')
+    setAlunoId('')
+    setModalAluno(true)
   }
 
   const handleAddAluno = async (e) => {
@@ -279,7 +297,9 @@ export default function TurmaDetail() {
           <p className="text-gray-400 text-sm text-center py-4">Nenhuma tarefa nesta turma</p>
         ) : (
           <div className="flex flex-col gap-2">
-            {tarefas.map((t) => <TarefaRow key={t.id} tarefa={t} canManage={canManage} />)}
+            {tarefas.map((t) => (
+              <TarefaRow key={t.id} tarefa={t} canManage={canManage} alunoMap={alunoMap} />
+            ))}
           </div>
         )}
       </div>
@@ -292,7 +312,7 @@ export default function TurmaDetail() {
             <h2 className="font-semibold text-gray-900">Alunos ({alunos.length})</h2>
           </div>
           {canManage && (
-            <Button onClick={() => { setError(''); setModalAluno(true) }} className="gap-1.5 text-xs px-3 py-1.5">
+            <Button onClick={openModalAluno} className="gap-1.5 text-xs px-3 py-1.5">
               <UserPlus size={14} /> Adicionar
             </Button>
           )}
@@ -304,7 +324,9 @@ export default function TurmaDetail() {
             {alunos.map((a) => (
               <div key={a.aluno_id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Aluno #{a.aluno_id}</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {alunoMap[a.aluno_id] ?? `Aluno #${a.aluno_id}`}
+                  </p>
                   <p className="text-xs text-gray-400">
                     Matriculado em {new Date(a.data_matricula).toLocaleDateString('pt-BR')}
                   </p>
@@ -349,11 +371,27 @@ export default function TurmaDetail() {
       {/* Modal: adicionar aluno */}
       <Modal open={modalAluno} onClose={() => setModalAluno(false)} title="Adicionar aluno">
         <form onSubmit={handleAddAluno} className="flex flex-col gap-4">
-          <Input label="ID do aluno" type="number" value={alunoId} onChange={(e) => setAlunoId(e.target.value)} required placeholder="Ex: 42" />
+          {alunosDisponiveis.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-2">Todos os alunos já estão matriculados</p>
+          ) : (
+            <Select
+              label="Aluno"
+              value={alunoId}
+              onChange={(e) => setAlunoId(e.target.value)}
+              required
+            >
+              <option value="">Selecione um aluno</option>
+              {alunosDisponiveis.map((a) => (
+                <option key={a.id} value={a.id}>{a.nome}</option>
+              ))}
+            </Select>
+          )}
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-2">
             <Button type="button" variant="secondary" className="flex-1" onClick={() => setModalAluno(false)}>Cancelar</Button>
-            <Button type="submit" loading={saving} className="flex-1">Adicionar</Button>
+            {alunosDisponiveis.length > 0 && (
+              <Button type="submit" loading={saving} className="flex-1">Adicionar</Button>
+            )}
           </div>
         </form>
       </Modal>
