@@ -82,7 +82,8 @@ export default function TurmaDetail() {
     setLinksLoading(true)
     try {
       const r = await listarLinks(aluno.aluno_id)
-      setLinksAluno({ ...aluno, lista: r.data })
+      const lista = r.data.map((l) => ({ ...l, url: `${window.location.origin}/responsavel/${l.token}` }))
+      setLinksAluno({ ...aluno, lista })
     } catch (err) {
       setError(parseApiError(err, 'Erro ao carregar links'))
     } finally {
@@ -97,7 +98,8 @@ export default function TurmaDetail() {
     setError('')
     try {
       const r = await criarLink({ aluno_id: linksAluno.aluno_id, rotulo: novoRotulo || null })
-      setLinksAluno({ ...linksAluno, lista: [r.data, ...linksAluno.lista] })
+      const novo = { ...r.data, url: `${window.location.origin}/responsavel/${r.data.token}` }
+      setLinksAluno({ ...linksAluno, lista: [novo, ...linksAluno.lista] })
       setNovoRotulo('')
     } catch (err) {
       setError(parseApiError(err, 'Erro ao gerar link'))
