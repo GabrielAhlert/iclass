@@ -4,14 +4,16 @@ import { getTurma, getAlunosTurma, adicionarAluno, removerAluno } from '../api/t
 import { getTarefas } from '../api/tarefas'
 import { getResolucoes } from '../api/resolucoes'
 import { getUsuarios } from '../api/usuarios'
+import { listarLinks, criarLink, revogarLink } from '../api/responsaveis'
 import { parseApiError } from '../api/errors'
 import { useAuth } from '../context/AuthContext'
 import Button from '../components/Button'
-import { Select } from '../components/Input'
+import Input, { Select } from '../components/Input'
 import Modal from '../components/Modal'
 import { FibBadge, StatusBadge } from '../components/Badge'
 import {
   ArrowLeft, UserPlus, UserMinus, Hash, Users, BookOpen, Plus, Clock, ChevronRight,
+  Share2, Copy, Trash2,
 } from 'lucide-react'
 
 export default function TurmaDetail() {
@@ -30,6 +32,11 @@ export default function TurmaDetail() {
   const [alunoId, setAlunoId] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [linksAluno, setLinksAluno] = useState(null)
+  const [linksLoading, setLinksLoading] = useState(false)
+  const [novoRotulo, setNovoRotulo] = useState('')
+  const [criandoLink, setCriandoLink] = useState(false)
+  const [copiado, setCopiado] = useState(null)
 
   const loadAlunos = () => getAlunosTurma(id).then((r) => setAlunos(r.data)).catch(() => {})
 
@@ -66,6 +73,58 @@ export default function TurmaDetail() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const abrirLinks = async (aluno) => {
+    setLinksAluno({ ...aluno, lista: [] })
+    setNovoRotulo('')
+    setError('')
+    setLinksLoading(true)
+    try {
+      const r = await listarLinks(aluno.aluno_id)
+      setLinksAluno({ ...aluno, lista: r.data })
+    } catch (err) {
+      setError(parseApiError(err, 'Erro ao carregar links'))
+    } finally {
+      setLinksLoading(false)
+    }
+  }
+
+  const handleCriarLink = async (e) => {
+    e.preventDefault()
+    if (!linksAluno) return
+    setCriandoLink(true)
+    setError('')
+    try {
+      const r = await criarLink({ aluno_id: linksAluno.aluno_id, rotulo: novoRotulo || null })
+      setLinksAluno({ ...linksAluno, lista: [r.data, ...linksAluno.lista] })
+      setNovoRotulo('')
+    } catch (err) {
+      setError(parseApiError(err, 'Erro ao gerar link'))
+    } finally {
+      setCriandoLink(false)
+    }
+  }
+
+  const handleRevogarLink = async (linkId) => {
+    if (!confirm('Revogar este link? O responsável perderá o acesso.')) return
+    try {
+      await revogarLink(linkId)
+      setLinksAluno({
+        ...linksAluno,
+        lista: linksAluno.lista.map((l) => l.id === linkId ? { ...l, revogado: true } : l),
+      })
+    } catch (err) {
+      setError(parseApiError(err, 'Erro ao revogar'))
+    }
+  }
+
+  const copiarUrl = async (url, id) => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiado(id)
+      setTimeout(() => setCopiado(null), 1500)
+    } catch {}
   }
 
   const handleRemoveAluno = async (alunoIdRemove) => {
@@ -176,18 +235,100 @@ export default function TurmaDetail() {
                       Matriculado em {new Date(a.data_matricula).toLocaleDateString('pt-BR')}
                     </p>
                   </div>
-                  <button
-                    onClick={() => handleRemoveAluno(a.aluno_id)}
-                    className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
-                  >
-                    <UserMinus size={16} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => abrirLinks(a)}
+                      title="Gerar link para responsável"
+                      className="p-1.5 rounded-lg hover:bg-primary-50 text-gray-400 hover:text-primary-600 transition-colors"
+                    >
+                      <Share2 size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleRemoveAluno(a.aluno_id)}
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+                    >
+                      <UserMinus size={16} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
       )}
+
+      {/* Modal: links de responsável */}
+      <Modal
+        open={!!linksAluno}
+        onClose={() => setLinksAluno(null)}
+        title={`Acesso responsável · ${linksAluno ? (alunoMap[linksAluno.aluno_id] ?? `Aluno #${linksAluno.aluno_id}`) : ''}`}
+      >
+        <div className="flex flex-col gap-4">
+          <form onSubmit={handleCriarLink} className="flex flex-col gap-2 p-3 border border-gray-200 rounded-xl">
+            <p className="text-xs text-gray-500">Gerar novo link (válido por 7 dias)</p>
+            <Input
+              placeholder="Rótulo (opcional, ex.: 'Mãe')"
+              value={novoRotulo}
+              onChange={(e) => setNovoRotulo(e.target.value)}
+              maxLength={128}
+            />
+            <Button type="submit" loading={criandoLink} className="self-start text-xs px-3 py-1.5">
+              Gerar link
+            </Button>
+          </form>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <div className="flex flex-col gap-2">
+            <p className="text-xs font-medium text-gray-500">Links existentes</p>
+            {linksLoading ? (
+              <p className="text-sm text-gray-400 text-center py-2">Carregando…</p>
+            ) : !linksAluno?.lista?.length ? (
+              <p className="text-sm text-gray-400 text-center py-2">Nenhum link gerado</p>
+            ) : linksAluno.lista.map((l) => {
+              const expirado = new Date(l.expira_em) < new Date()
+              const inativo = l.revogado || expirado
+              return (
+                <div key={l.id} className={`p-2 border rounded-xl ${inativo ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-gray-200'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {l.rotulo || '(sem rótulo)'}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {l.revogado ? 'Revogado' : expirado ? 'Expirado' : `Expira ${new Date(l.expira_em).toLocaleDateString('pt-BR')}`}
+                      </p>
+                    </div>
+                    {!inativo && (
+                      <>
+                        <button
+                          onClick={() => copiarUrl(l.url, l.id)}
+                          title="Copiar URL"
+                          className="p-1.5 rounded-lg hover:bg-primary-50 text-gray-400 hover:text-primary-600"
+                        >
+                          <Copy size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleRevogarLink(l.id)}
+                          title="Revogar"
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {!inativo && (
+                    <p className="text-[10px] text-gray-500 mt-1 break-all font-mono">
+                      {copiado === l.id ? 'Copiado!' : l.url}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal: adicionar aluno */}
       <Modal open={modalAluno} onClose={() => setModalAluno(false)} title="Adicionar aluno">

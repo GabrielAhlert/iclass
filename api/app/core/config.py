@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     secret_key: str = "changeme"
     access_token_expire_minutes: int = 60
     algorithm: str = "HS256"
+    public_web_url: str = "http://localhost"
 
     class Config:
         env_file = ".env"

@@ -14,6 +14,7 @@ import Usuarios from './pages/Usuarios'
 import NovaTarefa from './pages/NovaTarefa'
 import TarefaDetail from './pages/TarefaDetail'
 import TrocarSenha from './pages/TrocarSenha'
+import PainelResponsavel from './pages/PainelResponsavel'
 
 function Private({ children }) {
   return (
@@ -29,6 +30,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/responsavel/:token" element={<PainelResponsavel />} />
           <Route path="/trocar-senha" element={<ProtectedRoute><TrocarSenha /></ProtectedRoute>} />
           <Route path="/"           element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard"  element={<Private><Dashboard /></Private>} />

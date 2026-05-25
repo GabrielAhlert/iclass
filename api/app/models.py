@@ -121,6 +121,20 @@ class Arquivo(SQLModel, table=True):
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class LinkResponsavel(SQLModel, table=True):
+    """Token público para responsável visualizar avaliações do aluno."""
+    __tablename__ = "links_responsavel"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    token: str = Field(unique=True, index=True, max_length=64)
+    aluno_id: int = Field(foreign_key="usuarios.id", index=True)
+    criado_por_id: int = Field(foreign_key="usuarios.id")
+    rotulo: Optional[str] = Field(default=None, max_length=128)
+    expira_em: datetime
+    revogado: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Avaliacao(SQLModel, table=True):
     """Avaliação do professor sobre a resolução de um aluno."""
     __tablename__ = "avaliacoes"

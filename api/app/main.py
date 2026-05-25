@@ -9,7 +9,7 @@ import os
 from app.db import init_db, get_session
 from app.models import Usuario, Arquivo, Tarefa, Resolucao
 from app.core.deps import get_current_user, is_admin, is_professor, is_aluno, aluno_pode_ver_tarefa
-from app.routers import auth, usuarios, turmas, tarefas, resolucoes, avaliacoes, arquivos
+from app.routers import auth, usuarios, turmas, tarefas, resolucoes, avaliacoes, arquivos, responsaveis
 
 UPLOAD_DIR = "/app/uploads"
 if not os.path.isdir(UPLOAD_DIR):
@@ -47,6 +47,7 @@ app.include_router(tarefas.router,     prefix="/api/v1/tarefas",     tags=["tare
 app.include_router(resolucoes.router,  prefix="/api/v1/resolucoes",  tags=["resolucoes"])
 app.include_router(avaliacoes.router,  prefix="/api/v1/avaliacoes",  tags=["avaliacoes"])
 app.include_router(arquivos.router,    prefix="/api/v1/arquivos",    tags=["arquivos"])
+app.include_router(responsaveis.router, prefix="/api/v1/responsaveis", tags=["responsaveis"])
 
 
 @app.get("/health", tags=["health"])
